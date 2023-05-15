@@ -2,42 +2,55 @@ package usecase
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/fabioalmeida132/go-consolidador/internal/domain/entity"
 	"github.com/fabioalmeida132/go-consolidador/internal/domain/repository"
 	"github.com/fabioalmeida132/go-consolidador/pkg/uow"
 )
 
+var errActionNotFound = errors.New("action not found")
+
 type ActionAddInput struct {
-	MatchID  string
-	TeamID   string
-	PlayerID string
-	Minute   int
-	Action   string
+	MatchID  string `json:"match_id"`
+	TeamID   string `json:"team_id"`
+	PlayerID string `json:"player_id"`
+	Minute   int    `json:"minutes"`
+	Action   string `json:"action"`
 }
 
 type ActionAddUseCase struct {
 	Uow         uow.UowInterface
-	ActionTable entity.ActionTable
+	ActionTable entity.ActionTableInterface
 }
 
+func NewActionAddUseCase(uow uow.UowInterface, actionTable entity.ActionTableInterface) *ActionAddUseCase {
+	return &ActionAddUseCase{
+		Uow:         uow,
+		ActionTable: actionTable,
+	}
+}
+
+// execute
 func (a *ActionAddUseCase) Execute(ctx context.Context, input ActionAddInput) error {
-	return a.Uow.Do(ctx, func(uow *uow.Uow) error {
+	err := a.Uow.Do(ctx, func(_ *uow.Uow) error {
 		matchRepo := a.getMatchRepository(ctx)
-		myTeamRepo := a.getMyTeamRepository(ctx)
 		playerRepo := a.getPlayerRepository(ctx)
+		myTeamRepo := a.getMyTeamRepository(ctx)
 
 		match, err := matchRepo.FindByID(ctx, input.MatchID)
 		if err != nil {
 			return err
 		}
+		// fmt.Printf("match: %v", match)
 
 		score, err := a.ActionTable.GetScore(input.Action)
 		if err != nil {
-			return err
+			return errActionNotFound
 		}
-
-		theAction := entity.NewGameAction(input.PlayerID, input.Minute, input.Action, score)
+		theAction := entity.NewGameAction(input.PlayerID, input.Minute, input.Action, score, input.TeamID)
 		match.Actions = append(match.Actions, *theAction)
+		fmt.Println("match.Actions: ", theAction)
 
 		err = matchRepo.SaveActions(ctx, match, float64(score))
 		if err != nil {
@@ -55,18 +68,17 @@ func (a *ActionAddUseCase) Execute(ctx context.Context, input ActionAddInput) er
 			return err
 		}
 
-		myTeam, err := myTeamRepo.FindByID(ctx, input.TeamID)
+		myTeam, err := myTeamRepo.FindByID(ctx, "22087246-01bc-46ad-a9d9-a99a6d734167")
 		if err != nil {
 			return err
 		}
-
 		err = myTeamRepo.AddScore(ctx, myTeam, float64(score))
 		if err != nil {
 			return err
 		}
-
 		return nil
 	})
+	return err
 }
 
 func (a *ActionAddUseCase) getMatchRepository(ctx context.Context) repository.MatchRepositoryInterface {

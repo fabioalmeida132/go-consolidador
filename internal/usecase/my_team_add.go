@@ -14,7 +14,7 @@ type AddMyTeamInput struct {
 }
 
 type AddMyTeamUseCase struct {
-	uow uow.UowInterface
+	Uow uow.UowInterface
 }
 
 func (a *AddMyTeamUseCase) Execute(ctx context.Context, input AddMyTeamInput) error {
@@ -24,11 +24,12 @@ func (a *AddMyTeamUseCase) Execute(ctx context.Context, input AddMyTeamInput) er
 	if err != nil {
 		return err
 	}
-	return a.uow.CommitOrRollback()
+	a.Uow.CommitOrRollback()
+	return nil
 }
 
 func (a *AddMyTeamUseCase) getMyTeamRepository(ctx context.Context) repository.MyTeamRepositoryInterface {
-	myTeamRepository, err := a.uow.GetRepository(ctx, "MyTeamRepository")
+	myTeamRepository, err := a.Uow.GetRepository(ctx, "MyTeamRepository")
 	if err != nil {
 		panic(err)
 	}

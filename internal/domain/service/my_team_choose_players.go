@@ -5,21 +5,20 @@ import (
 	"github.com/fabioalmeida132/go-consolidador/internal/domain/entity"
 )
 
-func ChoosePlayers(myTeam entity.MyTeam, players []entity.Player) error {
+var errNotEnoughMoney = errors.New("not enough money")
+
+func ChoosePlayers(myTeam *entity.MyTeam, myPlayers []entity.Player, players []entity.Player) error {
 	totalCost := 0.0
-	totalEarned := 0.0
+	totalEarned := calculateTotalEarned(myPlayers, players)
 
 	for _, player := range players {
-		if playerInMyTeam(player, myTeam) && !playerInPlayers(player, &players) {
-			totalEarned += player.Price
-		}
-		if !playerInMyTeam(player, myTeam) && playerInPlayers(player, &players) {
+		if !playerInMyTeam(player, *myTeam) && playerInPlayersList(player, players) {
 			totalCost += player.Price
 		}
 	}
 
-	if totalCost > totalEarned {
-		return errors.New("total cost is greater than total earned")
+	if totalCost > myTeam.Score+totalEarned {
+		return errNotEnoughMoney
 	}
 
 	myTeam.Score += totalEarned - totalCost
@@ -32,16 +31,16 @@ func ChoosePlayers(myTeam entity.MyTeam, players []entity.Player) error {
 }
 
 func playerInMyTeam(player entity.Player, myTeam entity.MyTeam) bool {
-	for _, playerID := range myTeam.Players {
-		if playerID == player.ID {
+	for _, p := range myTeam.Players {
+		if p == player.ID {
 			return true
 		}
 	}
 	return false
 }
 
-func playerInPlayers(player entity.Player, players *[]entity.Player) bool {
-	for _, p := range *players {
+func playerInPlayersList(player entity.Player, players []entity.Player) bool {
+	for _, p := range players {
 		if p.ID == player.ID {
 			return true
 		}
@@ -49,5 +48,13 @@ func playerInPlayers(player entity.Player, players *[]entity.Player) bool {
 	return false
 }
 
-
-// 55:44 - INTERFACE.GO
+// get the difference between two slices
+func calculateTotalEarned(myPlayers []entity.Player, players []entity.Player) float64 {
+	var totalEarned float64
+	for _, myPlayer := range myPlayers {
+		if !playerInPlayersList(myPlayer, players) {
+			totalEarned += myPlayer.Price
+		}
+	}
+	return totalEarned
+}
